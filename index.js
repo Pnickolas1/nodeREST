@@ -21,12 +21,21 @@ var server = http.createServer(function(req, res) {
 
   // get the payload if any
   var decoder = new stringDecoder('utf-8');
+  var buffer = '';
+  req.on('data', function(data){
+    buffer += decoder.write(data);
+  });
 
-  // send the response
-  res.end('hello world\n');
+  req.on('end', function(){
+    buffer += decoder.end();
 
-  // log the requests path
-  console.log(headers);
+    // send the response
+    res.end('hello world\n');
+
+    // log the request path
+    console.log('request recieved this payload', buffer);
+  });
+  // log the requests pat
 });
 
 // start the server on port 3000
