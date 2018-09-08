@@ -1,44 +1,114 @@
-const http = require('http');
-const url = require('url');
-var stringDecoder = require('string_decoder').StringDecoder;
+// Dependencies
+var http = require('http');
+var https = require('https');
+var url = require('url');
+var StringDecoder = require('string_decoder').StringDecoder;
+var config = require('./config');
+var fs = require('fs');
 
-// the server should respond to all requests with a string
-var server = http.createServer(function(req, res) {
-  // get the url and parse it
+
+ // Instantiate the HTTP server
+var httpServer = http.createServer(function(req,res){
+  unifiedServer(req,res);
+});
+
+// Start the HTTP server
+httpServer.listen(config.httpPort,function(){
+  console.log('The HTTP server is running on port '+config.httpPort);
+});
+
+// Instantiate the HTTPS server
+var httpsServerOptions = {
+  'key': fs.readFileSync('./https/key.pem'),
+  'cert': fs.readFileSync('./https/cert.pem')
+};
+var httpsServer = https.createServer(httpsServerOptions,function(req,res){
+  unifiedServer(req,res);
+});
+
+// Start the HTTPS server
+httpsServer.listen(config.httpsPort,function(){
+ console.log('The HTTPS server is running on port '+config.httpsPort);
+});
+
+// All the server logic for both the http and https server
+var unifiedServer = function(req,res){
+
+  // Parse the url
   var parsedUrl = url.parse(req.url, true);
-  // get the path
+
+  // Get the path
   var path = parsedUrl.pathname;
   var trimmedPath = path.replace(/^\/+|\/+$/g, '');
 
-  // get the query string as an object
+  // Get the query string as an object
   var queryStringObject = parsedUrl.query;
 
-  // get the http method
+  // Get the HTTP method
   var method = req.method.toLowerCase();
 
-  // get the headers as an object
+  //Get the headers as an object
   var headers = req.headers;
 
-  // get the payload if any
-  var decoder = new stringDecoder('utf-8');
+  // Get the payload,if any
+  var decoder = new StringDecoder('utf-8');
   var buffer = '';
-  req.on('data', function(data){
-    buffer += decoder.write(data);
+  req.on('data', function(data) {
+      buffer += decoder.write(data);
   });
+  req.on('end', function() {
+      buffer += decoder.end();
 
-  req.on('end', function(){
-    buffer += decoder.end();
+      // Check the router for a matching path for a handler. If one is not found, use the notFound handler instead.
+      var chosenHandler = typeof(router[trimmedPath]) !== 'undefined' ? router[trimmedPath] : handlers.notFound;
 
-    // send the response
-    res.end('hello world\n');
+      // Construct the data object to send to the handler
+      var data = {
+        'trimmedPath' : trimmedPath,
+        'queryStringObject' : queryStringObject,
+        'method' : method,
+        'headers' : headers,
+        'payload' : buffer
+      };
 
-    // log the request path
-    console.log('request recieved this payload', buffer);
+      // Route the request to the handler specified in the router
+      chosenHandler(data,function(statusCode,payload){
+
+        // Use the status code returned from the handler, or set the default status code to 200
+        statusCode = typeof(statusCode) == 'number' ? statusCode : 200;
+
+        // Use the payload returned from the handler, or set the default payload to an empty object
+        payload = typeof(payload) == 'object'? payload : {};
+
+        // Convert the payload to a string
+        var payloadString = JSON.stringify(payload);
+
+        // Return the response
+        res.setHeader('Content-Type', 'application/json');
+        res.writeHead(statusCode);
+        res.end(payloadString);
+        console.log("Returning this response: ",statusCode,payloadString);
+
+      });
+
   });
-  // log the requests pat
-});
+};
 
-// start the server on port 3000
-server.listen(3000, function(){
-  console.log('The server is listening on Port 3000');
-});
+// Define all the handlers
+var handlers = {};
+
+// ping handler
+handlers.ping = function(data, callback) {
+  callback(200);
+}
+
+
+// Not found handler
+handlers.notFound = function(data,callback){
+  callback(404);
+};
+
+// Define the request router
+var router = {
+  'ping' : handlers.ping
+};
