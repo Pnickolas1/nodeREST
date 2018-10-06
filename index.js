@@ -1,3 +1,8 @@
+/*
+ * Primary file for API
+ *
+ */
+
 // Dependencies
 var http = require('http');
 var https = require('https');
@@ -5,8 +10,9 @@ var url = require('url');
 var StringDecoder = require('string_decoder').StringDecoder;
 var config = require('./lib/config');
 var fs = require('fs');
-var handlers = require('./lib/handlers')
-var helpers = require('./lib/helpers')
+var handlers = require('./lib/handlers');
+var helpers = require('./lib/helpers');
+
  // Instantiate the HTTP server
 var httpServer = http.createServer(function(req,res){
   unifiedServer(req,res);
@@ -87,16 +93,15 @@ var unifiedServer = function(req,res){
         res.setHeader('Content-Type', 'application/json');
         res.writeHead(statusCode);
         res.end(payloadString);
-        console.log("Returning this response: ",statusCode,payloadString);
-
+        console.log(trimmedPath,statusCode);
       });
 
   });
 };
 
-
 // Define the request router
 var router = {
   'ping' : handlers.ping,
-  'users': handlers.users,
+  'users' : handlers.users,
+  'tokens' : handlers.tokens
 };
